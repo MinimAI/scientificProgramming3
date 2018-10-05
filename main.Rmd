@@ -1,0 +1,22 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r results="hide"}
+# Clear all variables 
+rm(list=ls()) 
+
+# install pacman if necessary
+if (!require("pacman")) suppressPackageStartupMessages(install.packages("pacman"))
+# install required packages
+pacman::p_load("parallel","rcdk")
+```
+
+```{r}
+
+```
+
+
+
