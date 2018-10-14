@@ -22,10 +22,13 @@ pacman::p_load("parallel","rcdk","itertools","doParallel","multidplyr")
 #devtools::install_github("hadley/multidplyr")
 
 ```
-
+## Import the data
+Now, I load the `aid624202.sdf` file and compute the descriptor matrix. As the file is over 1 gb, it is imported using an iterator. The iterator goes through every molecule one by one and adds it to the `mols` list, either until all molecules are imported, or until a pre-set number of molecules is imported.
 ```{r}
+# the total amount of molecules in the sdf file
 max_n = 377550
-n=20
+# the amount of molecules that will be imported
+n = 200
 
 # iload.molecules requires the full path
 # creates an iterator to import the `aid624202.sdf` file
@@ -44,26 +47,43 @@ while(hasNext(iter)) {  # runs until
 }
 close(pb)
 ```
-
+## Calculate the molecular descriptors in parallel
+Now, I distribute the data among the cores and compute the molecular descriptors of each imported molecule. The code is set up so that it can go parallel over the molecules or over the descriptors. As we are only interested in the amount of time it takes to calculate the descriptors and not in the descriptors themselves, only the seconds elapsed will be saved.
 ```{r}
+# detects the amount of cores of the computer running this script
 numCores <- detectCores() - 1
+# get a list of all descriptors that will be calculated
 descNames <- unique(unlist(sapply(get.desc.categories()[2:4], get.desc.names)))
-mols2 = lapply(unlist(mols),get.smiles)
-time = list()
-time[0] = system.time(foreach(i=1:n,.combine=rbind) %do% eval.desc(parse.smiles(mols2[[i]]),descNames,verbose=F))[3]
-#time[0] = system.time(foreach(i=1:length(descNames),.combine=cbind) %dopar% eval.desc(parse.smiles(unlist(mols2)),descNames[i],verbose=F))[3]
-for(ncores in 1:numCores){
-  cl <- makeCluster(ncores)
-  clusterExport(cl,"descNames")
-  clusterExport(cl,"mols2")
-  clusterEvalQ(cl, pacman::p_load("parallel","rcdk","itertools","doParallel"))
-  
-  registerDoParallel(cl)
-  time[ncores] = system.time(foreach(i=1:n,.combine=rbind) %dopar% eval.desc(parse.smiles(mols2[[i]]),descNames,verbose=F))[3]
-#time[ncores] = system.time(foreach(i=1:length(descNames),.combine=cbind) %dopar% eval.desc(parse.smiles(unlist(mols2)),descNames[i],verbose=F))[3]
 
+pb <- txtProgressBar(min = 0, max = numCores, style = 3)
+
+# convert the molecules into smiles
+smiles = lapply(unlist(mols),get.smiles)
+# initialise list that will hold the amount of seconds elapsed during each calculation
+time = list()
+# set the initial time without any parallel computing
+#time[0] = system.time(foreach(i=1:n,.combine=rbind) %do% eval.desc(parse.smiles(smiles[[i]]),descNames,verbose=F))[3]
+#time[0] = system.time(foreach(i=1:length(descNames),.combine=cbind) %dopar% eval.desc(parse.smles(unlist(similes)),descNames[i],verbose=F))[3]
+
+setTxtProgressBar(pb, 0)
+
+# returns the seconds elapsed during molecular descriptor calculation for various amounts of cores
+for(ncores in 1:numCores){
+  cl <- makeCluster(ncores)     # create cluster
+  clusterExport(cl,"descNames") # export descriptor names to each core
+  clusterExport(cl,"smiles")    # export the molecules as smiles to each core
+  clusterEvalQ(cl, pacman::p_load("parallel","rcdk","itertools","doParallel")) # load required packages in each core
+  
+  registerDoParallel(cl) # make the next foreach call parallel
+  time[ncores] = system.time(foreach(i=1:n,.combine=rbind) %dopar% eval.desc(parse.smiles(smiles[[i]]),descNames,verbose=F))[3]
+#time[ncores]=system.time(foreach(i=1:length(descNames),.combine=cbind) %dopar% eval.desc(parse.smiles(unlist(smiles)),descNames[i],verbose=F))[3]
+  setTxtProgressBar(pb, ncores)
   stopCluster(cl)
 }
+```
+## Finally, I plot the results.
+```{r}
+plot(unlist(time),xlab="amount of cores used",ylab="time in seconds",main=paste0("Time it took to calculate descriptors for ",n," molecules"))
 ```
 
 
