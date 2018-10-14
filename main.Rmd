@@ -28,7 +28,7 @@ Now, I load the `aid624202.sdf` file and compute the descriptor matrix. As the f
 # the total amount of molecules in the sdf file
 max_n = 377550
 # the amount of molecules that will be imported
-n = 200
+n = 1000
 
 # iload.molecules requires the full path
 # creates an iterator to import the `aid624202.sdf` file
