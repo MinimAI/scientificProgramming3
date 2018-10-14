@@ -12,7 +12,7 @@ We begin by installing and loading any required packages. The following code fir
 ```{r results="hide"}
 # Clear all variables 
 rm(list=ls()) 
-options(java.parameters="-Xmx16g")
+options(java.parameters="-Xmx8g")
 
 # install pacman if necessary
 if (!require("pacman")) suppressPackageStartupMessages(install.packages("pacman"))
@@ -24,22 +24,22 @@ pacman::p_load("parallel","rcdk","itertools","doParallel","multidplyr")
 ```
 ## Import the data
 Now, I load the `aid624202.sdf` file and compute the descriptor matrix. As the file is over 1 gb, it is imported using an iterator. The iterator goes through every molecule one by one and adds it to the `mols` list, either until all molecules are imported, or until a pre-set number of molecules is imported.
-```{r}
+```{r, results="hide"}
 # the total amount of molecules in the sdf file
-max_n = 377550
+max_n <- 377550
 # the amount of molecules that will be imported
-n = 1000
+n <- 5000
 
 # iload.molecules requires the full path
 # creates an iterator to import the `aid624202.sdf` file
 iter <- iload.molecules('/Users/felix/Google Drive/Uni/Systems Biology/Year 2/Scientific Programming/scientificProgramming2/aid624202.sdf', type='sdf')
 # creates a txtProgressBar object to display the progress of importing the selected molecules
 pb <- txtProgressBar(min = 0, max = n, style = 3)
-counter = 0   # initiate counter
-mols = list()   # initiate list to hold the selected molecules
+counter <- 0   # initiate counter
+mols <- list()   # initiate list to hold the selected molecules
 while(hasNext(iter)) {  # runs until 
-  counter = counter + 1 # update the counter
-  mols[[counter]] = nextElem(iter)   # save the selected molecule in the list
+  counter <- counter + 1 # update the counter
+  mols[[counter]] <- nextElem(iter)   # save the selected molecule in the list
   setTxtProgressBar(pb, counter)
   if(counter == n){
     break
@@ -49,33 +49,31 @@ close(pb)
 ```
 ## Calculate the molecular descriptors in parallel
 Now, I distribute the data among the cores and compute the molecular descriptors of each imported molecule. The code is set up so that it can go parallel over the molecules or over the descriptors. As we are only interested in the amount of time it takes to calculate the descriptors and not in the descriptors themselves, only the seconds elapsed will be saved.
-```{r}
+```{r, result="hide"}
 # detects the amount of cores of the computer running this script
 numCores <- detectCores() - 1
 # get a list of all descriptors that will be calculated
 descNames <- unique(unlist(sapply(get.desc.categories()[2:4], get.desc.names)))
-
+# initialise progress bar
 pb <- txtProgressBar(min = 0, max = numCores, style = 3)
-
 # convert the molecules into smiles
-smiles = lapply(unlist(mols),get.smiles)
+smiles <- lapply(unlist(mols),get.smiles)
 # initialise list that will hold the amount of seconds elapsed during each calculation
-time = list()
+time <- list()
 # set the initial time without any parallel computing
-#time[0] = system.time(foreach(i=1:n,.combine=rbind) %do% eval.desc(parse.smiles(smiles[[i]]),descNames,verbose=F))[3]
+#time[1] = system.time(eval.desc(mols,descNames,verbose=T))[3]
 #time[0] = system.time(foreach(i=1:length(descNames),.combine=cbind) %dopar% eval.desc(parse.smles(unlist(similes)),descNames[i],verbose=F))[3]
-
-setTxtProgressBar(pb, 0)
+#setTxtProgressBar(pb, 0)
 
 # returns the seconds elapsed during molecular descriptor calculation for various amounts of cores
-for(ncores in 1:numCores){
+for(ncores in 2:numCores){
   cl <- makeCluster(ncores)     # create cluster
   clusterExport(cl,"descNames") # export descriptor names to each core
   clusterExport(cl,"smiles")    # export the molecules as smiles to each core
   clusterEvalQ(cl, pacman::p_load("parallel","rcdk","itertools","doParallel")) # load required packages in each core
   
   registerDoParallel(cl) # make the next foreach call parallel
-  time[ncores] = system.time(foreach(i=1:n,.combine=rbind) %dopar% eval.desc(parse.smiles(smiles[[i]]),descNames,verbose=F))[3]
+  time[ncores] <- system.time(foreach(i=1:n,.combine=rbind) %dopar% eval.desc(parse.smiles(smiles[[i]]),descNames,verbose=F))[3]
 #time[ncores]=system.time(foreach(i=1:length(descNames),.combine=cbind) %dopar% eval.desc(parse.smiles(unlist(smiles)),descNames[i],verbose=F))[3]
   setTxtProgressBar(pb, ncores)
   stopCluster(cl)
