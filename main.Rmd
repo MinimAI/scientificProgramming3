@@ -1,9 +1,14 @@
 ---
-title: "R Notebook"
+title: "Parallel Computing"
 output: html_notebook
+thanks: "Replication files are available on the author's Github account."
+author:
+- name: Felix Taschbach
+  affiliation: Maastricht University
 ---
 
-
+## Load Packages
+We begin by installing and loading any required packages. The following code first installs the package pacman, if necessary, and then uses pacman to install, if required, and load the packages needed to run this script.
 ```{r results="hide"}
 # Clear all variables 
 rm(list=ls()) 
@@ -12,7 +17,7 @@ options(java.parameters="-Xmx16g")
 # install pacman if necessary
 if (!require("pacman")) suppressPackageStartupMessages(install.packages("pacman"))
 # install required packages
-pacman::p_load("parallel","rcdk","itertools","doParallel","multidplyr","Rcpi")
+pacman::p_load("parallel","rcdk","itertools","doParallel","multidplyr")
 # install.packages("devtools")
 #devtools::install_github("hadley/multidplyr")
 
@@ -39,7 +44,6 @@ while(hasNext(iter)) {  # runs until
 }
 close(pb)
 ```
-
 
 ```{r}
 numCores <- detectCores() - 1
