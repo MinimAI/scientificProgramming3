@@ -83,7 +83,7 @@ for(ncores in 1:numCores){
 ```
 ## Finally, I plot the results.
 ```{r}
-plot(unlist(time),xlab="amount of cores used",ylab="time in seconds",main=paste0("Time it took to calculate descriptors for ",n," molecules"))
+plot(unlist(time),xlab="amount of cores used",ylab="time in seconds",main=paste0("Time it took to calculate descriptors for ",n," molecules"),type='b')
 ```
 
 
