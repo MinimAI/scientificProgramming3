@@ -7,15 +7,59 @@ output: html_notebook
 ```{r results="hide"}
 # Clear all variables 
 rm(list=ls()) 
+options(java.parameters="-Xmx16g")
 
 # install pacman if necessary
 if (!require("pacman")) suppressPackageStartupMessages(install.packages("pacman"))
 # install required packages
-pacman::p_load("parallel","rcdk")
+pacman::p_load("parallel","rcdk","itertools","doParallel","multidplyr","Rcpi")
+# install.packages("devtools")
+#devtools::install_github("hadley/multidplyr")
+
 ```
 
 ```{r}
+max_n = 377550
+n=20
 
+# iload.molecules requires the full path
+# creates an iterator to import the `aid624202.sdf` file
+iter <- iload.molecules('/Users/felix/Google Drive/Uni/Systems Biology/Year 2/Scientific Programming/scientificProgramming2/aid624202.sdf', type='sdf')
+# creates a txtProgressBar object to display the progress of importing the selected molecules
+pb <- txtProgressBar(min = 0, max = n, style = 3)
+counter = 0   # initiate counter
+mols = list()   # initiate list to hold the selected molecules
+while(hasNext(iter)) {  # runs until 
+  counter = counter + 1 # update the counter
+  mols[[counter]] = nextElem(iter)   # save the selected molecule in the list
+  setTxtProgressBar(pb, counter)
+  if(counter == n){
+    break
+  }
+}
+close(pb)
+```
+
+
+```{r}
+numCores <- detectCores() - 1
+descNames <- unique(unlist(sapply(get.desc.categories()[2:4], get.desc.names)))
+mols2 = lapply(unlist(mols),get.smiles)
+time = list()
+time[0] = system.time(foreach(i=1:n,.combine=rbind) %do% eval.desc(parse.smiles(mols2[[i]]),descNames,verbose=F))[3]
+#time[0] = system.time(foreach(i=1:length(descNames),.combine=cbind) %dopar% eval.desc(parse.smiles(unlist(mols2)),descNames[i],verbose=F))[3]
+for(ncores in 1:numCores){
+  cl <- makeCluster(ncores)
+  clusterExport(cl,"descNames")
+  clusterExport(cl,"mols2")
+  clusterEvalQ(cl, pacman::p_load("parallel","rcdk","itertools","doParallel"))
+  
+  registerDoParallel(cl)
+  time[ncores] = system.time(foreach(i=1:n,.combine=rbind) %dopar% eval.desc(parse.smiles(mols2[[i]]),descNames,verbose=F))[3]
+#time[ncores] = system.time(foreach(i=1:length(descNames),.combine=cbind) %dopar% eval.desc(parse.smiles(unlist(mols2)),descNames[i],verbose=F))[3]
+
+  stopCluster(cl)
+}
 ```
 
 
