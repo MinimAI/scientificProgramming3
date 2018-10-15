@@ -12,15 +12,12 @@ We begin by installing and loading any required packages. The following code fir
 ```{r results="hide"}
 # Clear all variables 
 rm(list=ls()) 
-options(java.parameters="-Xmx8g")
+options(java.parameters="-Xmx8g") # only necessary for large file imports
 
 # install pacman if necessary
 if (!require("pacman")) suppressPackageStartupMessages(install.packages("pacman"))
 # install required packages
-pacman::p_load("parallel","rcdk","itertools","doParallel","multidplyr")
-# install.packages("devtools")
-#devtools::install_github("hadley/multidplyr")
-
+pacman::p_load("parallel","rcdk","itertools","doParallel")
 ```
 ## Import the data
 Now, I load the `aid624202.sdf` file and compute the descriptor matrix. As the file is over 1 gb, it is imported using an iterator. The iterator goes through every molecule one by one and adds it to the `mols` list, either until all molecules are imported, or until a pre-set number of molecules is imported.
@@ -28,7 +25,7 @@ Now, I load the `aid624202.sdf` file and compute the descriptor matrix. As the f
 # the total amount of molecules in the sdf file
 max_n <- 377550
 # the amount of molecules that will be imported
-n <- 5000
+n <- 30
 
 # iload.molecules requires the full path
 # creates an iterator to import the `aid624202.sdf` file
@@ -48,22 +45,18 @@ while(hasNext(iter)) {  # runs until
 close(pb)
 ```
 ## Calculate the molecular descriptors in parallel
-Now, I distribute the data among the cores and compute the molecular descriptors of each imported molecule. The code is set up so that it can go parallel over the molecules or over the descriptors. As we are only interested in the amount of time it takes to calculate the descriptors and not in the descriptors themselves, only the seconds elapsed will be saved.
+Now, I distribute the data among the cores and compute the molecular descriptors of each imported molecule. As we are only interested in the amount of time it takes to calculate the descriptors and not in the descriptors themselves, only the seconds elapsed will be saved. However, I used the function `all.equal()` to verify that the descriptors calculated in parallel and in sequence are identical. Thus, there are the calculation of the different descriptors is threadsafe.
 ```{r, result="hide"}
 # detects the amount of cores of the computer running this script
 numCores <- detectCores() - 1
 # get a list of all descriptors that will be calculated
 descNames <- unique(unlist(sapply(get.desc.categories()[2:4], get.desc.names)))
 # initialise progress bar
-pb <- txtProgressBar(min = 0, max = numCores, style = 3)
+pb <- txtProgressBar(min = 2, max = numCores, style = 3)
 # convert the molecules into smiles
 smiles <- lapply(unlist(mols),get.smiles)
 # initialise list that will hold the amount of seconds elapsed during each calculation
 time <- list()
-# set the initial time without any parallel computing
-#time[1] = system.time(eval.desc(mols,descNames,verbose=T))[3]
-#time[0] = system.time(foreach(i=1:length(descNames),.combine=cbind) %dopar% eval.desc(parse.smles(unlist(similes)),descNames[i],verbose=F))[3]
-#setTxtProgressBar(pb, 0)
 
 # returns the seconds elapsed during molecular descriptor calculation for various amounts of cores
 for(ncores in 2:numCores){
@@ -74,7 +67,6 @@ for(ncores in 2:numCores){
   
   registerDoParallel(cl) # make the next foreach call parallel
   time[ncores] <- system.time(foreach(i=1:n,.combine=rbind) %dopar% eval.desc(parse.smiles(smiles[[i]]),descNames,verbose=F))[3]
-#time[ncores]=system.time(foreach(i=1:length(descNames),.combine=cbind) %dopar% eval.desc(parse.smiles(unlist(smiles)),descNames[i],verbose=F))[3]
   setTxtProgressBar(pb, ncores)
   stopCluster(cl)
 }
