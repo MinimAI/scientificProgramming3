@@ -12,7 +12,7 @@ We begin by installing and loading any required packages. The following code fir
 ```{r results="hide"}
 # Clear all variables 
 rm(list=ls()) 
-options(java.parameters="-Xmx8g") # only necessary for large file imports
+options(java.parameters="-Xmx16g") # only necessary for large file imports
 
 # install pacman if necessary
 if (!require("pacman")) suppressPackageStartupMessages(install.packages("pacman"))
@@ -25,7 +25,7 @@ Now, I load the `aid624202.sdf` file and compute the descriptor matrix. As the f
 # the total amount of molecules in the sdf file
 max_n <- 377550
 # the amount of molecules that will be imported
-n <- 30
+n <- 1000
 
 # iload.molecules requires the full path
 # creates an iterator to import the `aid624202.sdf` file
@@ -46,6 +46,7 @@ close(pb)
 ```
 ## Calculate the molecular descriptors in parallel
 Now, I distribute the data among the cores and compute the molecular descriptors of each imported molecule. As we are only interested in the amount of time it takes to calculate the descriptors and not in the descriptors themselves, only the seconds elapsed will be saved. However, I used the function `all.equal()` to verify that the descriptors calculated in parallel and in sequence are identical. Thus, there are the calculation of the different descriptors is threadsafe.
+A few of the molecules are not correctly parsed and thus lead to a small percentage of wrong molecules with empty smile strings.
 ```{r, result="hide"}
 # detects the amount of cores of the computer running this script
 numCores <- detectCores() - 1
@@ -59,12 +60,11 @@ smiles <- lapply(unlist(mols),get.smiles)
 time <- list()
 
 # returns the seconds elapsed during molecular descriptor calculation for various amounts of cores
-for(ncores in 2:numCores){
+for(ncores in 1:numCores){
   cl <- makeCluster(ncores)     # create cluster
   clusterExport(cl,"descNames") # export descriptor names to each core
   clusterExport(cl,"smiles")    # export the molecules as smiles to each core
   clusterEvalQ(cl, pacman::p_load("parallel","rcdk","itertools","doParallel")) # load required packages in each core
-  
   registerDoParallel(cl) # make the next foreach call parallel
   time[ncores] <- system.time(foreach(i=1:n,.combine=rbind) %dopar% eval.desc(parse.smiles(smiles[[i]]),descNames,verbose=F))[3]
   setTxtProgressBar(pb, ncores)
