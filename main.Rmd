@@ -12,7 +12,7 @@ We begin by installing and loading any required packages. The following code fir
 ```{r results="hide"}
 # Clear all variables 
 rm(list=ls()) 
-options(java.parameters="-Xmx16g") # only necessary for large file imports
+# options(java.parameters="-Xmx16g") # only necessary for large file imports
 
 # to run this code, you  merely need to set the file path to the sdf file
 DATA.PATH = '/Users/felix/Google Drive/Uni/Systems Biology/Year 2/Scientific Programming/scientificProgramming2/aid624202.sdf'
@@ -69,7 +69,7 @@ for(ncores in 1:numCores){
   clusterExport(cl,"smiles")    # export the molecules as smiles to each core
   clusterEvalQ(cl, pacman::p_load("rcdk")) # load required packages in each core
   registerDoParallel(cl) # make the next foreach call parallel
-  time[ncores] <- system.time({results[ncores] = foreach(i=1:n,.combine=rbind) %dopar% eval.desc(parse.smiles(smiles[[i]]),descNames,verbose=F)})[3]
+  time[ncores] <- system.time({foreach(i=1:n,.combine=rbind) %dopar% eval.desc(parse.smiles(smiles[[i]]),descNames,verbose=F)})[3]
   setTxtProgressBar(pb, ncores)
   stopCluster(cl)
 }
